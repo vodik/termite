@@ -25,6 +25,7 @@ enum overlay_mode {
 typedef struct search_panel_info {
     GtkWidget *vte;
     GtkWidget *entry;
+    GtkEntryCompletion *comp;
     GtkBin *panel;
     enum overlay_mode mode;
 } search_panel_info;
@@ -86,10 +87,48 @@ static void search(VteTerminal *vte, const char *pattern, bool reverse) {
 }
 
 static gboolean entry_key_press_cb(GtkEntry *entry, GdkEventKey *event, search_panel_info *info) {
+    const guint modifiers = event->state & gtk_accelerator_get_default_mod_mask();
     gboolean ret = FALSE;
 
     if (event->keyval == GDK_KEY_Escape) {
         ret = TRUE;
+    /* } else if (event->keyval == GDK_KEY_Tab && modifiers & GDK_CONTROL_MASK) { */
+    } else if (event->keyval == GDK_KEY_Tab) {
+        if (!info->comp) {
+            printf("WE DON'T HAVE A MODEL\n");
+            return FALSE;
+        }
+
+        GtkTreeModel *model = gtk_entry_completion_get_model(info->comp);
+        GtkTreeIter iter;
+
+        const gchar *text = gtk_entry_get_text(entry);
+
+        /* if (modifiers & GDK_SHIFT_MASK) { */
+        /*     /1* move backwards *1/ */
+        /* } else { */
+        /*     /1* move forwards *1/ */
+        /* } */
+
+        bool valid = gtk_tree_model_get_iter_first(model, &iter);
+        if (!valid) {
+            printf("BAIL\n");
+            return TRUE;
+        }
+
+        valid = gtk_tree_model_iter_next(model, &iter);
+        if (!valid) {
+            printf("BAIL2\n");
+            return TRUE;
+        }
+
+        gchar *str_data;
+        gtk_tree_model_get(model, &iter, 0, &str_data, -1);
+        gtk_entry_set_text(entry, str_data);
+        g_free(str_data);
+
+        return TRUE;
+
     } else if (event->keyval == GDK_KEY_Return) {
         const gchar *text = gtk_entry_get_text(entry);
 
@@ -111,6 +150,7 @@ static gboolean entry_key_press_cb(GtkEntry *entry, GdkEventKey *event, search_p
 
     if (ret) {
         info->mode = OVERLAY_HIDDEN;
+        info->comp = NULL;
         gtk_widget_hide(GTK_WIDGET(info->panel));
         gtk_widget_grab_focus(info->vte);
     }
@@ -129,6 +169,8 @@ static void overlay_show(search_panel_info *info, enum overlay_mode mode, bool c
 
         gtk_entry_completion_set_inline_selection(completion, TRUE);
         gtk_entry_completion_set_text_column(completion, 0);
+
+        info->comp = completion;
     }
 
     gtk_entry_set_text(GTK_ENTRY(info->entry), "");
@@ -475,7 +517,7 @@ int main(int argc, char **argv) {
     gtk_container_add(GTK_CONTAINER(overlay), vte);
     gtk_container_add(GTK_CONTAINER(window), overlay);
 
-    search_panel_info info = {vte, entry, GTK_BIN(alignment), OVERLAY_HIDDEN};
+    search_panel_info info = {vte, entry, NULL, GTK_BIN(alignment), OVERLAY_HIDDEN};
 
     g_signal_connect(window,  "destroy",            G_CALLBACK(gtk_main_quit), NULL);
     g_signal_connect(vte,     "child-exited",       G_CALLBACK(gtk_main_quit), NULL);
