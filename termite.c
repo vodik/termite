@@ -24,6 +24,7 @@ typedef struct search_panel_info {
     GtkWidget *entry;
     GtkEntryCompletion *comp;
     GtkBin *panel;
+    GtkTreeIter *iter;
     enum overlay_mode mode;
 } search_panel_info;
 
@@ -118,9 +119,15 @@ gboolean entry_key_press_cb(GtkEntry *entry, GdkEventKey *event, search_panel_in
         }
 
         GtkTreeModel *model = gtk_entry_completion_get_model(info->comp);
-        GtkTreeIter iter;
-
         const gchar *text = gtk_entry_get_text(entry);
+
+        if (!info->iter) {
+            info->iter = (GtkTreeIter *)g_malloc(sizeof(GtkTreeIter));
+            if (!gtk_tree_model_get_iter_first(model, info->iter)) {
+                g_printerr("BAIL\n");
+                return TRUE;
+            }
+        }
 
         /* if (modifiers & GDK_SHIFT_MASK) { */
         /*     /1* move backwards *1/ */
@@ -128,20 +135,13 @@ gboolean entry_key_press_cb(GtkEntry *entry, GdkEventKey *event, search_panel_in
         /*     /1* move forwards *1/ */
         /* } */
 
-        bool valid = gtk_tree_model_get_iter_first(model, &iter);
-        if (!valid) {
-            printf("BAIL\n");
-            return TRUE;
-        }
-
-        valid = gtk_tree_model_iter_next(model, &iter);
-        if (!valid) {
+        if (!gtk_tree_model_iter_next(model, info->iter)) {
             printf("BAIL2\n");
             return TRUE;
         }
 
         gchar *str_data;
-        gtk_tree_model_get(model, &iter, 0, &str_data, -1);
+        gtk_tree_model_get(model, info->iter, 0, &str_data, -1);
         gtk_entry_set_text(entry, str_data);
         g_free(str_data);
 
@@ -170,6 +170,11 @@ gboolean entry_key_press_cb(GtkEntry *entry, GdkEventKey *event, search_panel_in
         info->mode = OVERLAY_HIDDEN;
         gtk_widget_hide(GTK_WIDGET(info->panel));
         gtk_widget_grab_focus(info->vte);
+
+        if (info->iter) {
+            g_free(info->iter);
+            info->iter = NULL;
+        }
     }
     return ret;
 }
@@ -580,7 +585,12 @@ int main(int argc, char **argv) {
     gtk_container_add(GTK_CONTAINER(overlay), vte);
     gtk_container_add(GTK_CONTAINER(window), overlay);
 
-    search_panel_info info = {vte, entry, NULL, GTK_BIN(alignment), OVERLAY_HIDDEN};
+    search_panel_info info = {
+        .vte   = vte,
+        .entry = entry,
+        .panel = GTK_BIN(alignment),
+        .mode  = OVERLAY_HIDDEN
+    };
 
     g_signal_connect(window,  "destroy",            G_CALLBACK(gtk_main_quit), NULL);
     g_signal_connect(vte,     "child-exited",       G_CALLBACK(gtk_main_quit), NULL);
