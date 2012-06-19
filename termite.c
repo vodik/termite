@@ -111,7 +111,6 @@ gboolean entry_key_press_cb(GtkEntry *entry, GdkEventKey *event, search_panel_in
 
     if (event->keyval == GDK_KEY_Escape) {
         ret = TRUE;
-    /* } else if (event->keyval == GDK_KEY_Tab && modifiers & GDK_CONTROL_MASK) { */
     } else if (event->keyval == GDK_KEY_Tab) {
         if (!info->comp) {
             printf("WE DON'T HAVE A MODEL\n");
@@ -119,7 +118,6 @@ gboolean entry_key_press_cb(GtkEntry *entry, GdkEventKey *event, search_panel_in
         }
 
         GtkTreeModel *model = gtk_entry_completion_get_model(info->comp);
-        const gchar *text = gtk_entry_get_text(entry);
 
         if (!info->iter) {
             info->iter = (GtkTreeIter *)g_malloc(sizeof(GtkTreeIter));
@@ -129,15 +127,13 @@ gboolean entry_key_press_cb(GtkEntry *entry, GdkEventKey *event, search_panel_in
             }
         }
 
-        /* if (modifiers & GDK_SHIFT_MASK) { */
-        /*     /1* move backwards *1/ */
-        /* } else { */
-        /*     /1* move forwards *1/ */
-        /* } */
-
-        if (!gtk_tree_model_iter_next(model, info->iter)) {
-            printf("BAIL2\n");
-            return TRUE;
+        if (modifiers & GDK_SHIFT_MASK) {
+            g_printerr("can't do anything about this yet :(");
+        } else {
+            if (!gtk_tree_model_iter_next(model, info->iter)) {
+                g_printerr("BAIL2\n");
+                return TRUE;
+            }
         }
 
         gchar *str_data;
