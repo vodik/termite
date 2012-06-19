@@ -15,6 +15,7 @@ CFLAGS := -std=c99 -O3 \
 	  -Wc++-compat \
 	  -Wbad-function-cast \
 	  -Wunused-macros \
+	  -Wwrite-strings \
 	  ${shell pkg-config --cflags ${GTK} ${VTE}} \
 	  ${CFLAGS}
 
@@ -24,7 +25,7 @@ endif
 
 LDFLAGS := -s -Wl,--as-needed ${shell pkg-config --libs ${GTK} ${VTE}} ${LDFLAGS}
 
-termite: termite.c config.h
+termite: termite.c
 	${CC} ${CFLAGS} -o $@ $< ${LDFLAGS}
 
 install: termite
